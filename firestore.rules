@@ -1,0 +1,13 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // This is a placeholder rules file.
+    // The Lunar Tag application does not read from or write to Firestore directly.
+    // All photo and audit data is stored in a local database on the user's device.
+    // These rules are locked down by default for security.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
