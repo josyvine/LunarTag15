@@ -35,6 +35,10 @@ import java.util.Locale;
 public class AdManager {
 
     private static final String TAG = "AdManager";
+
+    // Set to true for Developer Ad-Free Unlimited Mode
+    public static final boolean DEVELOPER_UNLIMITED_MODE = true;
+
     private static final String PREFS_ADS = "LunarTagAdsPrefs";
     private static final String KEY_AD_LEVEL = "ad_level"; // 0, 1, 2, 3
     private static final String KEY_SLOTS_REMAINING = "slots_remaining";
@@ -55,13 +59,16 @@ public class AdManager {
 
     public AdManager(Context context) {
         this.context = context;
-        loadRewardedAd(); // Pre-load ad on init
+        if (!DEVELOPER_UNLIMITED_MODE) {
+            loadRewardedAd(); // Pre-load ad on init only if ads are enabled
+        }
     }
 
     /**
      * Loads a Rewarded Ad in the background.
      */
     public void loadRewardedAd() {
+        if (DEVELOPER_UNLIMITED_MODE) return;
         if (rewardedAd != null || isAdLoading) return;
 
         isAdLoading = true;
@@ -90,6 +97,13 @@ public class AdManager {
      * Handles the Level Upgrade logic automatically on success.
      */
     public void showRewardedAd(Activity activity, OnAdRewardListener listener) {
+        // If developer unlimited mode is enabled, instantly grant reward with no ads
+        if (DEVELOPER_UNLIMITED_MODE) {
+            upgradeAdLevel();
+            if (listener != null) listener.onRewardEarned();
+            return;
+        }
+
         if (rewardedAd == null) {
             Toast.makeText(context, "Ad not ready yet. Please try again in a few seconds.", Toast.LENGTH_SHORT).show();
             loadRewardedAd(); // Try loading again
@@ -129,6 +143,13 @@ public class AdManager {
         int currentLevel = prefs.getInt(KEY_AD_LEVEL, 0);
         SharedPreferences.Editor editor = prefs.edit();
 
+        if (DEVELOPER_UNLIMITED_MODE) {
+            editor.putInt(KEY_AD_LEVEL, 3);
+            saveUnlockDate(editor);
+            editor.apply();
+            return;
+        }
+
         if (currentLevel == 0) {
             // Unlocking Admin Button -> Level 1 (3 Slots)
             editor.putInt(KEY_AD_LEVEL, 1);
@@ -157,14 +178,13 @@ public class AdManager {
      * If yes, it RESETS the Ad Level to 0 (Locked).
      */
     public void checkShiftReset() {
+        if (DEVELOPER_UNLIMITED_MODE) {
+            return; // Developer unlimited mode is permanent and never resets
+        }
+
         SharedPreferences settings = context.getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE);
         String shiftEndStr = settings.getString(KEY_SHIFT_END, "00:00 AM");
 
-        // Logic: If current time > shift end time, AND we are unlocked, reset.
-        // Simplified Logic: We reset if the DATE has changed since last unlock.
-        // Or strictly by time.
-        
-        // Strict Shift Logic:
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("hh:mm a", Locale.US);
             Date dateEnd = sdf.parse(shiftEndStr);
@@ -179,10 +199,6 @@ public class AdManager {
                 end.set(Calendar.MONTH, now.get(Calendar.MONTH));
                 end.set(Calendar.DAY_OF_MONTH, now.get(Calendar.DAY_OF_MONTH));
 
-                // If "Now" is AFTER "Shift End", reset.
-                // NOTE: This is simple logic. For night shifts (cross-midnight), logic is complex.
-                // For safety/simplicity: We reset if "Ad Date" != "Today".
-                
                 SharedPreferences prefs = context.getSharedPreferences(PREFS_ADS, Context.MODE_PRIVATE);
                 String lastUnlock = prefs.getString(KEY_LAST_UNLOCK_DATE, "");
                 SimpleDateFormat dateSdf = new SimpleDateFormat("yyyyMMdd", Locale.US);
@@ -201,16 +217,25 @@ public class AdManager {
     // --- Getters for UI ---
 
     public int getAdLevel() {
+        if (DEVELOPER_UNLIMITED_MODE) {
+            return 3; // Permanent Level 3 = Unlimited Mode
+        }
         SharedPreferences prefs = context.getSharedPreferences(PREFS_ADS, Context.MODE_PRIVATE);
         return prefs.getInt(KEY_AD_LEVEL, 0);
     }
 
     public int getSlotsRemaining() {
+        if (DEVELOPER_UNLIMITED_MODE) {
+            return 999; // Unlimited indicator
+        }
         SharedPreferences prefs = context.getSharedPreferences(PREFS_ADS, Context.MODE_PRIVATE);
         return prefs.getInt(KEY_SLOTS_REMAINING, 0);
     }
 
     public void decrementSlot() {
+        if (DEVELOPER_UNLIMITED_MODE) {
+            return; // Slots are never deducted in unlimited mode
+        }
         SharedPreferences prefs = context.getSharedPreferences(PREFS_ADS, Context.MODE_PRIVATE);
         int current = prefs.getInt(KEY_SLOTS_REMAINING, 0);
         if (current > 0) {
