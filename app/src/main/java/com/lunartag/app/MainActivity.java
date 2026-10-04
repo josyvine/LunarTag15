@@ -1,0 +1,433 @@
+package com.lunartag.app;
+
+import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.IntentSender;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.net.Uri;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+import androidx.activity.result.ActivityResultCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.navigation.NavController;
+import androidx.navigation.fragment.NavHostFragment;
+
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.initialization.InitializationStatus;
+import com.google.android.gms.ads.initialization.OnInitializationCompleteListener;
+import com.google.android.play.core.appupdate.AppUpdateInfo;
+import com.google.android.play.core.appupdate.AppUpdateManager;
+import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
+import com.google.android.play.core.install.model.AppUpdateType;
+import com.google.android.play.core.install.model.UpdateAvailability;
+import com.google.android.gms.tasks.Task;
+import com.lunartag.app.databinding.ActivityMainBinding;
+import com.lunartag.app.firebase.RemoteConfigManager;
+import com.lunartag.app.services.SendService;
+import com.lunartag.app.ui.logs.LogFragment;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * The main screen of the application.
+ * UPDATED: Handles centralized logging, blinking notification icon, AdMob Banner, 
+ * Google Play In-App Updates, and Notification Permissions for 9 horizontal menu items.
+ * FIXED: Captures direct share click intents to automatically dismount SendService and dispatch WhatsApp.
+ */
+public class MainActivity extends AppCompatActivity {
+
+    private ActivityMainBinding binding;
+    private NavController navController;
+    private ActivityResultLauncher<String[]> permissionLauncher;
+    private String[] requiredPermissions;
+
+    // --- GOOGLE PLAY IN-APP UPDATE ---
+    private AppUpdateManager appUpdateManager;
+    private static final int APP_UPDATE_REQUEST_CODE = 1001;
+
+    // --- CENTRAL LOG STORAGE ---
+    // Stores the logs so they persist when switching screens
+    private StringBuilder logHistory = new StringBuilder();
+    private final Handler uiHandler = new Handler(Looper.getMainLooper());
+
+    // --- LIVE LOG RECEIVER ---
+    // Listens for messages from Robot, Camera, and System
+    private final BroadcastReceiver logReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent != null && "com.lunartag.ACTION_LOG_UPDATE".equals(intent.getAction())) {
+                String message = intent.getStringExtra("log_msg");
+                String type = intent.getStringExtra("log_type"); // "info" or "error"
+
+                if (message != null) {
+                    // 1. Add to history
+                    logHistory.append(message).append("\n");
+
+                    // 2. Blink the Icon
+                    blinkLogIcon(type);
+
+                    // 3. If the Log Screen is currently open, update it in real-time
+                    NavHostFragment navHost = (NavHostFragment) getSupportFragmentManager().findFragmentById(R.id.nav_host_fragment_activity_main);
+                    if (navHost != null) {
+                        for (androidx.fragment.app.Fragment fragment : navHost.getChildFragmentManager().getFragments()) {
+                            if (fragment instanceof LogFragment && fragment.isVisible()) {
+                                ((LogFragment) fragment).appendLog(message);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    /**
+     * Public method for LogFragment to retrieve the full history when it opens.
+     */
+    public String getGlobalLogs() {
+        return logHistory.toString();
+    }
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
+
+        // Initialize Log History
+        logHistory.append("-- SYSTEM STARTED --\n");
+
+        // *** NEW: Initialize In-App Update Manager ***
+        appUpdateManager = AppUpdateManagerFactory.create(this);
+        checkAppUpdate();
+
+        // *** NEW: Initialize Mobile Ads SDK ***
+        MobileAds.initialize(this, new OnInitializationCompleteListener() {
+            @Override
+            public void onInitializationComplete(InitializationStatus initializationStatus) {
+                // SDK Initialized
+            }
+        });
+
+        // *** NEW: Load Banner Ad ***
+        AdView mAdView = findViewById(R.id.adView);
+        if (mAdView != null) {
+            AdRequest adRequest = new AdRequest.Builder().build();
+            mAdView.loadAd(adRequest);
+        }
+
+        // Permissions Setup
+        // *** UPDATED: Added POST_NOTIFICATIONS for Android 13+ ***
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requiredPermissions = new String[]{
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.POST_NOTIFICATIONS // Required for Firebase Push Notifications
+            };
+        } else {
+            requiredPermissions = new String[]{
+                    Manifest.permission.CAMERA,
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+            };
+        }
+
+        RemoteConfigManager.fetchRemoteConfig(this);
+
+        NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.nav_host_fragment_activity_main);
+
+        if (navHostFragment != null) {
+            navController = navHostFragment.getNavController();
+        }
+
+        // --- NAVIGATION LOGIC ---
+
+        binding.navDashboard.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_dashboard);
+            updateIconVisuals(binding.navDashboard);
+        });
+
+        binding.navCamera.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_camera);
+            updateIconVisuals(binding.navCamera);
+        });
+
+        binding.navGallery.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_gallery);
+            updateIconVisuals(binding.navGallery);
+        });
+
+        binding.navRobot.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_robot);
+            updateIconVisuals(binding.navRobot);
+        });
+
+        binding.navApps.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_apps);
+            updateIconVisuals(binding.navApps);
+        });
+
+        binding.navHelp.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_help);
+            updateIconVisuals(binding.navHelp);
+        });
+
+        binding.navContact.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_contact);
+            updateIconVisuals(binding.navContact);
+        });
+
+        // NEW: Log Icon Click Listener
+        binding.navLogs.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_logs);
+            updateIconVisuals(binding.navLogs);
+        });
+
+        binding.navSettings.setOnClickListener(v -> {
+            navController.navigate(R.id.navigation_settings);
+            updateIconVisuals(binding.navSettings);
+        });
+
+        permissionLauncher = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(),
+                new ActivityResultCallback<Map<String, Boolean>>() {
+                    @Override
+                    public void onActivityResult(Map<String, Boolean> results) {
+                        boolean allGranted = true;
+                        for (Boolean granted : results.values()) {
+                            if (!granted) {
+                                allGranted = false;
+                                break;
+                            }
+                        }
+                        if (allGranted) {
+                            onPermissionsGranted();
+                        } else {
+                            Toast.makeText(MainActivity.this, "Permissions needed for core features.", Toast.LENGTH_LONG).show();
+                        }
+                    }
+                });
+
+        checkAndRequestPermissions();
+
+        // FIXED: Handle standard notification dispatch click on clean cold startup
+        handleShareNotificationClick(getIntent());
+    }
+
+    /**
+     * FIXED: Captures intent updates when the Activity is running and brought back to front.
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent); // Update internal intent state
+        handleShareNotificationClick(intent);
+    }
+
+    /**
+     * FIXED: Intercepts custom share intents to dismount the persistent service and redirect to WhatsApp.
+     */
+    private void handleShareNotificationClick(Intent intent) {
+        if (intent != null && SendService.ACTION_SHARE_IMAGE.equals(intent.getAction())) {
+            String uriString = intent.getStringExtra(SendService.EXTRA_SHARE_IMAGE_URI);
+            if (uriString != null) {
+                try {
+                    Uri imageUri = Uri.parse(uriString);
+
+                    // 1. Immediately terminate SendService to dismount the persistent notification
+                    Intent stopServiceIntent = new Intent(this, SendService.class);
+                    stopService(stopServiceIntent);
+
+                    // 2. Dispatch Direct WhatsApp Share Activity
+                    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                    shareIntent.setType("image/*");
+                    shareIntent.putExtra(Intent.EXTRA_STREAM, imageUri);
+                    shareIntent.setPackage("com.whatsapp"); 
+                    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    shareIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                    startActivity(shareIntent);
+
+                } catch (Exception e) {
+                    Log.e("MainActivity", "Error handling share notification dismount: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        // --- IN-APP UPDATE RESUME CHECK ---
+        // If an IMMEDIATE update was started but the app was backgrounded,
+        // we need to resume the update view when the app returns to foreground.
+        if (appUpdateManager != null) {
+            appUpdateManager.getAppUpdateInfo().addOnSuccessListener(appUpdateInfo -> {
+                if (appUpdateInfo.updateAvailability() == UpdateAvailability.DEVELOPER_TRIGGERED_UPDATE_IN_PROGRESS) {
+                    try {
+                        appUpdateManager.startUpdateFlowForResult(
+                                appUpdateInfo,
+                                AppUpdateType.IMMEDIATE,
+                                this,
+                                APP_UPDATE_REQUEST_CODE
+                        );
+                    } catch (IntentSender.SendIntentException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
+
+        IntentFilter filter = new IntentFilter("com.lunartag.ACTION_LOG_UPDATE");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+             registerReceiver(logReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+             registerReceiver(logReceiver, filter);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        try {
+            unregisterReceiver(logReceiver);
+        } catch (IllegalArgumentException e) {
+            // Receiver not registered
+        }
+    }
+
+    /**
+     * Handle the result of the In-App Update flow.
+     */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == APP_UPDATE_REQUEST_CODE) {
+            if (resultCode != RESULT_OK) {
+                // If the update is cancelled or fails, we request it again.
+                // For "Immediate" updates, we generally want to force the user.
+                Log.e("AppUpdate", "Update flow failed! Result code: " + resultCode);
+                // Optional: Show a toast or finish() the activity if the update is mandatory.
+                // For now, we will simply try to check again.
+                checkAppUpdate();
+            }
+        }
+    }
+
+    // --- NEW: CHECK FOR GOOGLE PLAY UPDATES ---
+    private void checkAppUpdate() {
+        Task<AppUpdateInfo> appUpdateInfoTask = appUpdateManager.getAppUpdateInfo();
+
+        appUpdateInfoTask.addOnSuccessListener(appUpdateInfo -> {
+            if (appUpdateInfo.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE
+                    && appUpdateInfo.isUpdateTypeAllowed(AppUpdateType.IMMEDIATE)) {
+
+                try {
+                    appUpdateManager.startUpdateFlowForResult(
+                            appUpdateInfo,
+                            AppUpdateType.IMMEDIATE,
+                            this,
+                            APP_UPDATE_REQUEST_CODE
+                    );
+                } catch (IntentSender.SendIntentException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
+
+    /**
+     * Blinks the Log Icon based on message type.
+     * RED for errors, GREEN for info.
+     */
+    private void blinkLogIcon(String type) {
+        final int defaultColor = getAttributeColor(com.google.android.material.R.attr.colorOnSurface);
+        int blinkColor = Color.GREEN; // Default info color
+
+        // Detect error types
+        if (type != null && (type.equalsIgnoreCase("error") || type.equalsIgnoreCase("fail"))) {
+            blinkColor = Color.RED;
+        }
+
+        // Apply blink color
+        binding.navLogs.setColorFilter(blinkColor, PorterDuff.Mode.SRC_IN);
+
+        // Reset after 500ms
+        uiHandler.postDelayed(() -> {
+            // Check current active state of the log icon
+            binding.navLogs.setColorFilter(defaultColor, PorterDuff.Mode.SRC_IN);
+        }, 500);
+    }
+
+    private void updateIconVisuals(View activeView) {
+        int activeColor = getAttributeColor(com.google.android.material.R.attr.colorPrimary);
+        int inactiveColor = getAttributeColor(com.google.android.material.R.attr.colorOnSurface);
+
+        binding.navDashboard.setColorFilter(inactiveColor);
+        binding.navCamera.setColorFilter(inactiveColor);
+        binding.navGallery.setColorFilter(inactiveColor);
+        binding.navRobot.setColorFilter(inactiveColor);
+        binding.navApps.setColorFilter(inactiveColor);
+        binding.navHelp.setColorFilter(inactiveColor);
+        binding.navContact.setColorFilter(inactiveColor);
+        binding.navLogs.setColorFilter(inactiveColor);
+        binding.navSettings.setColorFilter(inactiveColor);
+
+        if (activeView instanceof ImageView) {
+            ((ImageView) activeView).setColorFilter(activeColor);
+        }
+    }
+
+    private int getAttributeColor(int attrId) {
+        android.util.TypedValue typedValue = new android.util.TypedValue();
+        getTheme().resolveAttribute(attrId, typedValue, true);
+        return typedValue.data;
+    }
+
+    private void checkAndRequestPermissions() {
+        List<String> permissionsToRequest = new ArrayList<>();
+        boolean allPermissionsAlreadyGranted = true;
+        for (String permission : requiredPermissions) {
+            if (permission != null && ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                permissionsToRequest.add(permission);
+                allPermissionsAlreadyGranted = false;
+            }
+        }
+
+        if (!permissionsToRequest.isEmpty()) {
+            permissionLauncher.launch(permissionsToRequest.toArray(new String[0]));
+        }
+
+        if (allPermissionsAlreadyGranted) {
+            onPermissionsGranted();
+        }
+    }
+
+    private void onPermissionsGranted() {
+        logHistory.append("System: Permissions Granted.\n");
+    }
+}
