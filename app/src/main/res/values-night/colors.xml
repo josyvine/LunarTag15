@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Palette for Lunar Tag (Dark Theme) -->
+    <color name="colorPrimary">#303F9F</color> <!-- A slightly brighter blue for dark backgrounds -->
+    <color name="colorPrimaryDark">#1A237E</color> <!-- The standard deep blue for the status bar -->
+    <color name="colorAccent">#FFAB00</color> <!-- A bright amber/orange for accents -->
+
+    <!-- Standard Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+
+    <!-- UI Element Colors for Dark Theme -->
+    <color name="textColorPrimary">#FFFFFFFF</color> <!-- White for text on dark backgrounds -->
+    <color name="textColorSecondary">#B3FFFFFF</color> <!-- 70% white for secondary text -->
+    <color name="windowBackground">#121212</color> <!-- A standard dark theme background color -->
+</resources>
