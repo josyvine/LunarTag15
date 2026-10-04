@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_edit_timestamp"
+        android:title="Edit Assigned Timestamp" />
+
+    <item
+        android:id="@+id/action_delete_photo"
+        android:title="Delete Photo" />
+
+    <item
+        android:id="@+id/action_resend_photo"
+        android:title="Re-send Photo" />
+
+</menu>
