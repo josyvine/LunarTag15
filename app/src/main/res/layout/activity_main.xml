@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" 
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <!-- FRAGMENT CONTAINER (Main App Content) -->
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/nav_host_fragment_activity_main"
+        android:name="androidx.navigation.fragment.NavHostFragment"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:defaultNavHost="true"
+        app:layout_constraintBottom_toTopOf="@id/nav_scroll_view"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:navGraph="@navigation/mobile_navigation" />
+
+    <!-- SCROLLABLE BOTTOM NAVIGATION BAR -->
+    <!-- CHANGED: ConstraintBottom is now toTopOf @id/adView -->
+    <HorizontalScrollView
+        android:id="@+id/nav_scroll_view"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:background="?android:attr/windowBackground"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        app:layout_constraintBottom_toTopOf="@id/adView"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <!-- 1. DASHBOARD (Updated to badge icon) -->
+            <ImageView
+                android:id="@+id/nav_dashboard"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="Dashboard"
+                android:src="@drawable/badge_24px"
+                app:tint="?attr/colorPrimary"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content" />
+
+            <!-- 2. CAMERA (Updated to camera_24px icon) -->
+            <ImageView
+                android:id="@+id/nav_camera"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="Camera"
+                android:src="@drawable/camera_24px"
+                app:tint="?attr/colorOnSurface"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content" />
+
+            <!-- 3. GALLERY (Updated to photo_library icon) -->
+            <ImageView
+                android:id="@+id/nav_gallery"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="Gallery"
+                android:src="@drawable/photo_library_24px"
+                app:tint="?attr/colorOnSurface"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content" />
+
+            <!-- 4. ROBOT (Updated to robot_24px icon) -->
+            <ImageView
+                android:id="@+id/nav_robot"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="Automation Robot"
+                android:src="@drawable/robot_24px"
+                app:tint="?attr/colorOnSurface"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content" />
+
+            <!-- 5. APPS (Updated to app_registration icon) -->
+            <ImageView
+                android:id="@+id/nav_apps"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="Target Apps"
+                android:src="@drawable/app_registration_24px"
+                app:tint="?attr/colorOnSurface"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content" />
+
+            <!-- 6. HELP (Updated to help_center icon) -->
+            <ImageView
+                android:id="@+id/nav_help"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="Help"
+                android:src="@drawable/help_center_24px"
+                app:tint="?attr/colorOnSurface"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content" />
+
+            <!-- 7. CONTACT (Updated to contact_support icon) -->
+            <ImageView
+                android:id="@+id/nav_contact"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="Contact Us"
+                android:src="@drawable/contact_support_24px"
+                app:tint="?attr/colorOnSurface"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content" />
+
+            <!-- 8. LOGS (Updated to terminal_2 icon) -->
+            <ImageView
+                android:id="@+id/nav_logs"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="System Logs"
+                android:src="@drawable/terminal_2_24px"
+                app:tint="?attr/colorOnSurface"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+            <Space android:layout_width="16dp" android:layout_height="wrap_content" />
+
+            <!-- 9. SETTINGS (Updated to settings_24px icon) -->
+            <ImageView
+                android:id="@+id/nav_settings"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="10dp"
+                android:contentDescription="Settings"
+                android:src="@drawable/settings_24px"
+                app:tint="?attr/colorOnSurface"
+                android:background="?attr/selectableItemBackgroundBorderless" />
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- *** NEW: ADMOB BANNER AD (FOOTER) *** -->
+    <com.google.android.gms.ads.AdView
+        xmlns:ads="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/adView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        ads:adSize="BANNER"
+        ads:adUnitId="@string/admob_banner_id"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
