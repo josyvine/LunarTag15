@@ -1,0 +1,48 @@
+<resources>
+    <!-- App Identity -->
+    <string name="app_name">Lunar Tag</string>
+
+    <!-- Onboarding Screen -->
+    <string name="onboarding_title">Welcome to Lunar Tag</string>
+    <string name="onboarding_text">
+        Welcome to Lunar Tag.\n\n
+        Before you proceed, you MUST understand and agree to the following:\n\n
+        1.  <b>Permissions:</b> To function correctly, this app requires persistent access to your device\'s CAMERA and PRECISE LOCATION (GPS). It cannot work without these permissions.\n\n
+        2.  <b>Geotagging:</b> When a photo is captured, the app will embed your current GPS coordinates, timestamp, and other details into a permanent watermark on the image.\n\n
+        3.  <b>Audit &amp; Compliance:</b> All critical actions (photo captures, timestamp assignments, sending) are logged for auditing purposes. The real capture time is always recorded, even when a custom timestamp is used.\n\n
+        4.  <b>Automated Sending:</b> The app is designed to automatically schedule and initiate sending photos to a pre-configured WhatsApp group at their assigned time.\n\n
+        5.  <b>Accessibility Service (Optional):</b> To fully automate sending photos to WhatsApp, this app uses an Accessibility Service. You must manually enable this in your phone\'s settings. The app will guide you. This service ONLY interacts with WhatsApp to send photos and does not monitor any other activity.\n\n
+        By clicking "Accept &amp; Continue", you acknowledge these terms and agree to use Lunar Tag at your own risk.
+    </string>
+    <string name="onboarding_continue_button">Accept &amp; Continue</string>
+
+    <!-- This is the NEW string that was omitted -->
+    <string name="accessibility_service_description">Lunar Tag Accessibility Service: This service helps automate sending your geotagged photos through WhatsApp. It can identify the correct WhatsApp group and press the send button for you. The app will only use this service for this specific purpose.</string>
+
+
+    <!-- Bottom Navigation Titles -->
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_camera">Camera</string>
+    <string name="title_gallery">Gallery</string>
+    <string name="title_settings">Settings</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_header_general">General Settings</string>
+    <string name="settings_company_name_label">Company Name</string>
+    <string name="settings_company_name_hint">Enter your company name</string>
+    <string name="settings_duty_timing_label">Duty Timing</string>
+    <string name="settings_shift_start_hint">Shift Start Time</string>
+    <string name="settings_shift_end_hint">Shift End Time</string>
+    <string name="settings_whatsapp_group_label">Target WhatsApp Group</string>
+    <string name="settings_whatsapp_group_hint">Enter group name exactly</string>
+    <string name="settings_save_button">Save Settings</string>
+
+    <!-- Camera Screen -->
+    <string name="camera_accuracy_label">GPS Accuracy:</string>
+    <string name="camera_capture_button_desc">Capture Photo</string>
+
+    <!-- *** NEW: ADMOB UNIT IDS *** -->
+    <string name="admob_banner_id">ca-app-pub-2223803405403727/4653356609</string>
+    <string name="admob_rewarded_id">ca-app-pub-2223803405403727/8079140882</string>
+
+</resources>
