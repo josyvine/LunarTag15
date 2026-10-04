@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_dashboard">
+
+    <!-- Dashboard Screen Fragment Destination -->
+    <fragment
+        android:id="@+id/navigation_dashboard"
+        android:name="com.lunartag.app.ui.dashboard.DashboardFragment"
+        android:label="@string/title_dashboard"
+        tools:layout="@layout/fragment_dashboard" />
+
+    <!-- Camera Screen Fragment Destination -->
+    <fragment
+        android:id="@+id/navigation_camera"
+        android:name="com.lunartag.app.ui.camera.CameraFragment"
+        android:label="@string/title_camera"
+        tools:layout="@layout/fragment_camera" />
+
+    <!-- Gallery Screen Fragment Destination -->
+    <fragment
+        android:id="@+id/navigation_gallery"
+        android:name="com.lunartag.app.ui.gallery.GalleryFragment"
+        android:label="@string/title_gallery"
+        tools:layout="@layout/fragment_gallery" />
+
+    <!-- Robot Screen (Automation Mode) -->
+    <fragment
+        android:id="@+id/navigation_robot"
+        android:name="com.lunartag.app.ui.robot.RobotFragment"
+        android:label="Automation Robot"
+        tools:layout="@layout/fragment_robot" />
+
+    <!-- Apps Screen (Clone Selector) -->
+    <fragment
+        android:id="@+id/navigation_apps"
+        android:name="com.lunartag.app.ui.apps.AppsFragment"
+        android:label="Target Apps"
+        tools:layout="@layout/fragment_apps" />
+
+    <!-- Help Screen -->
+    <fragment
+        android:id="@+id/navigation_help"
+        android:name="com.lunartag.app.ui.help.HelpFragment"
+        android:label="Help &amp; Guide"
+        tools:layout="@layout/fragment_help" />
+
+    <!-- Contact Us Screen -->
+    <fragment
+        android:id="@+id/navigation_contact"
+        android:name="com.lunartag.app.ui.contact.ContactFragment"
+        android:label="Contact Us"
+        tools:layout="@layout/fragment_contact" />
+
+    <!-- NEW: Logs Screen -->
+    <fragment
+        android:id="@+id/navigation_logs"
+        android:name="com.lunartag.app.ui.logs.LogFragment"
+        android:label="System Logs"
+        tools:layout="@layout/fragment_logs" />
+
+    <!-- Settings Screen Fragment Destination -->
+    <fragment
+        android:id="@+id/navigation_settings"
+        android:name="com.lunartag.app.ui.settings.SettingsFragment"
+        android:label="@string/title_settings"
+        tools:layout="@layout/fragment_settings" >
+        <!-- This action defines the path from Settings to the Schedule Editor -->
+        <action
+            android:id="@+id/action_settings_to_schedule_editor"
+            app:destination="@id/navigation_schedule_editor" />
+    </fragment>
+
+    <!-- Schedule Editor Screen -->
+    <fragment
+        android:id="@+id/navigation_schedule_editor"
+        android:name="com.lunartag.app.ui.admin.ScheduleEditorFragment"
+        android:label="Schedule Editor"
+        tools:layout="@layout/fragment_schedule_editor" />
+
+</navigation> 
