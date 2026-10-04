@@ -74,8 +74,7 @@
 
     </LinearLayout>
 
-    <!-- NEW: ACTIVE WORKPLACE INDICATOR (Logic #1) -->
-    <!-- Shows which manual location profile is currently selected -->
+    <!-- ACTIVE WORKPLACE INDICATOR -->
     <TextView
         android:id="@+id/text_active_workplace"
         android:layout_width="wrap_content"
@@ -98,7 +97,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#80000000"
-        android:padding="16dp"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="14dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -106,8 +106,8 @@
         <!-- Gallery Thumbnail (Left Edge) -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/card_gallery_thumbnail"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
             app:cardCornerRadius="8dp"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
@@ -118,29 +118,44 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:scaleType="centerCrop"
-                android:background="@android:color/darker_gray"/>
+                android:background="@android:color/darker_gray" />
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- FOLDER BUTTON (Updated to use save_24px) -->
+        <!-- FOLDER / STORAGE SELECTION BUTTON -->
         <ImageButton
             android:id="@+id/button_save_folder"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:src="@drawable/save_24px"
             android:scaleType="fitCenter"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Select Save Folder"
             app:tint="@android:color/white"
             app:layout_constraintStart_toEndOf="@id/card_gallery_thumbnail"
+            app:layout_constraintEnd_toStartOf="@id/button_import_image"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- NEW: FILE IMPORT BUTTON (Additional Feature) -->
+        <ImageButton
+            android:id="@+id/button_import_image"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:src="@drawable/upload_file_24px"
+            android:scaleType="fitCenter"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Import Photo to Watermark"
+            app:tint="@android:color/white"
+            app:layout_constraintStart_toEndOf="@id/button_save_folder"
             app:layout_constraintEnd_toStartOf="@id/button_capture"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- Shutter Button (Updated to use capture_24px) -->
+        <!-- Shutter Button (Remains 100% untouched in functionality) -->
         <ImageButton
             android:id="@+id/button_capture"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
+            android:layout_width="74dp"
+            android:layout_height="74dp"
             android:src="@drawable/capture_24px"
             android:scaleType="fitCenter"
             android:background="?attr/selectableItemBackgroundBorderless"
@@ -148,14 +163,13 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- GPS STATUS BUTTON (Updated to use my_location_24px) -->
-        <!-- Prepared for Logic #2: Blinks red if workplace mismatch is detected -->
+        <!-- GPS STATUS BUTTON -->
         <ImageButton
             android:id="@+id/button_gps_status"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:src="@drawable/my_location_24px"
             android:scaleType="fitCenter"
             android:background="?attr/selectableItemBackgroundBorderless"
@@ -164,13 +178,13 @@
             app:layout_constraintStart_toEndOf="@id/button_capture"
             app:layout_constraintEnd_toStartOf="@id/button_flip_camera"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- Flip Camera Button (Updated to use flip_camera_android_24px) -->
+        <!-- Flip Camera Button -->
         <ImageButton
             android:id="@+id/button_flip_camera"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:src="@drawable/flip_camera_android_24px"
             android:scaleType="fitCenter"
             android:background="?attr/selectableItemBackgroundBorderless"
@@ -178,7 +192,7 @@
             app:tint="@android:color/white"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"/>
+            app:layout_constraintBottom_toBottomOf="parent" />
 
         <!-- Slot Counter (Positioned above Flip Button) -->
         <TextView
@@ -194,7 +208,7 @@
             app:layout_constraintEnd_toEndOf="@id/button_flip_camera"
             app:layout_constraintStart_toStartOf="@id/button_flip_camera"
             tools:text="5 Slots"
-            tools:visibility="visible"/>
+            tools:visibility="visible" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
