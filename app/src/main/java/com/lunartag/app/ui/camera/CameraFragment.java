@@ -15,9 +15,9 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.location.Address;
-import android.location.Geocoder;
+import android.graphics.ImageDecoder;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Build;
@@ -32,6 +32,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.camera.core.Camera;
@@ -107,6 +109,27 @@ public class CameraFragment extends Fragment {
     private ObjectAnimator gpsBlinkAnimator;
     private boolean isBlinking = false;
 
+    // NEW: Activity Result Launcher for Image Import
+    private ActivityResultLauncher<String> imagePickerLauncher;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // Register Photo Picker for gallery import
+        imagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null) {
+                        logToScreen("Event: Image selected from gallery for watermark.");
+                        processImportedImage(uri);
+                    } else {
+                        logToScreen("Event: Image import cancelled.");
+                    }
+                }
+        );
+    }
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         binding = FragmentCameraBinding.inflate(inflater, container, false);
@@ -125,18 +148,14 @@ public class CameraFragment extends Fragment {
         // Setup Listener to turn GPS Icon GREEN when locked
         locationProvider.setStatusListener(location -> {
             new android.os.Handler(Looper.getMainLooper()).post(() -> {
-                // FIXED GLITCH #1: Null safety check to prevent crash during signal lock
                 if (binding != null) {
                     binding.buttonGpsStatus.setColorFilter(Color.GREEN);
-                    // Logic #2: Automatic Smart Workplace Check on lock
                     performSmartWorkplaceCheck(location);
                 }
             });
         });
 
-        // --- LIVE LOG START ---
         logToScreen("System: Camera View Created.");
-        // ----------------------
 
         // 1. Initialize Zoom Gesture Detector
         scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.SimpleOnScaleGestureListener() {
@@ -167,7 +186,7 @@ public class CameraFragment extends Fragment {
             Toast.makeText(getContext(), "Camera permissions not granted.", Toast.LENGTH_SHORT).show();
         }
 
-        // 3. Capture Button Logic
+        // 3. Shutter Capture Button Logic (Remains 100% Untouched)
         binding.buttonCapture.setOnClickListener(v -> {
             logToScreen("Event: Capture Button Clicked.");
             takePhoto();
@@ -176,7 +195,7 @@ public class CameraFragment extends Fragment {
         // 4. Flip Camera Button Logic
         binding.buttonFlipCamera.setOnClickListener(v -> toggleCamera());
 
-        // 5. NEW: GPS Button Logic (Footer) - Triggers Smart Sync
+        // 5. GPS Button Logic (Footer)
         binding.buttonGpsStatus.setOnClickListener(v -> {
             logToScreen("User Command: Force GPS/Workplace Sync.");
             Location loc = locationProvider.getCurrentLocationFast();
@@ -188,21 +207,22 @@ public class CameraFragment extends Fragment {
             }
         });
 
-        // 6. NEW: Folder Selection Logic (Footer)
+        // 6. Folder Selection Logic (Footer)
         binding.buttonSaveFolder.setOnClickListener(v -> {
             logToScreen("User Command: Opening File Picker...");
             StorageUtils.launchFolderSelector(this);
         });
 
+        // 7. NEW: Import Image Button Logic (Additional Feature)
+        binding.buttonImportImage.setOnClickListener(v -> {
+            logToScreen("User Command: Opening Gallery to import image...");
+            imagePickerLauncher.launch("image/*");
+        });
+
         updateWorkplaceDisplay();
-        updateSlotCounter(); // Update UI if in admin mode
+        updateSlotCounter();
     }
 
-    /**
-     * LOGIC #2, #3, and #4 Implementation.
-     * Automatically refreshes, warns of mismatch, and auto-switches or auto-adds workplaces.
-     * UPDATED: Uses synchronized Geocoding logic to prevent "pathetic" address results.
-     */
     private void performSmartWorkplaceCheck(Location currentGps) {
         if (currentGps == null) return;
         
@@ -210,49 +230,37 @@ public class CameraFragment extends Fragment {
         boolean isManualMode = prefs.getBoolean(ManualLocationDialog.KEY_LOCATION_MODE_MANUAL, false);
         boolean isAutoDetectEnabled = prefs.getBoolean(ManualLocationDialog.KEY_AUTO_WORKPLACE_DETECTION, true);
 
-        // We only perform the mismatch warning and auto-switch if user is in Manual Mode
         if (!isManualMode || !isAutoDetectEnabled) {
             stopGpsWarningBlink();
             return;
         }
 
-        // FIXED GLITCH #2: Pull coordinates fresh to ensure saved updates are recognized immediately
         String savedLatStr = prefs.getString(ManualLocationDialog.KEY_MANUAL_LAT, "0.0");
         String savedLonStr = prefs.getString(ManualLocationDialog.KEY_MANUAL_LON, "0.0");
         double savedLat = Double.parseDouble(savedLatStr);
         double savedLon = Double.parseDouble(savedLonStr);
 
-        // Logic #2: Calculate distance to detect mismatch
         float distance = locationProvider.calculateDistanceInMeters(
                 currentGps.getLatitude(), currentGps.getLongitude(), savedLat, savedLon);
 
-        if (distance > 200) { // Mismatch detected if distance > 200 meters
+        if (distance > 200) {
             logToScreen("Warning: Workplace Mismatch (" + (int)distance + "m). Starting Blink.");
             startGpsWarningBlink();
 
-            // Logic #3 & #4: Background DB search or Auto-Add
             cameraExecutor.execute(() -> {
                 ManualLocation closestMatch = manualLocationDao.findClosestLocation(currentGps.getLatitude(), currentGps.getLongitude());
                 
                 if (closestMatch != null) {
-                    // Logic #3: Found another saved workplace nearby - Auto Switch
                     logToScreen("Smart Sync: Auto-Switching to workplace: " + closestMatch.locationName);
                     activateWorkplaceProfile(closestMatch);
                 } else {
-                    // Logic #4: No match found - Auto Create new Workplace Profile
                     logToScreen("Smart Sync: New Workplace detected. Auto-creating...");
                     
-                    // FIXED GLITCH #2: Using the synchronized robust geocoder logic from Automatic Mode
                     GeocodingUtils.AddressDetails details = GeocodingUtils.getDetailedAddress(requireContext(), currentGps);
                     
                     ManualLocation newWorkplace = new ManualLocation();
-                    
-                    // FIXED GLITCH #3: Clean address parsing for auto-created profile names
                     newWorkplace.locationName = details.landmark.isEmpty() ? (details.city.isEmpty() ? "New Workplace" : details.city) : details.landmark;
-                    
-                    // FIX ISSUE #2: Clean brackets from landmark in auto-refresh logic
                     newWorkplace.landmark = details.landmark.replace("(", "").replace(")", "");
-                    
                     newWorkplace.pincode = details.pincode.replace("(", "").replace(")", "");
                     newWorkplace.state = details.state.replace("(", "").replace(")", "");
                     newWorkplace.country = details.country.replace("(", "").replace(")", "");
@@ -271,8 +279,6 @@ public class CameraFragment extends Fragment {
 
     private void activateWorkplaceProfile(ManualLocation loc) {
         SharedPreferences prefs = requireContext().getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE);
-        
-        // FIX ISSUE #2: Ensure landmark is clean of brackets before activating profile
         String cleanLandmark = loc.landmark.replace("(", "").replace(")", "");
 
         prefs.edit()
@@ -286,7 +292,6 @@ public class CameraFragment extends Fragment {
                 .apply();
         
         new android.os.Handler(Looper.getMainLooper()).post(() -> {
-            // FIXED GLITCH #1 & #2: Check binding before UI update and force display refresh
             if (binding != null) {
                 stopGpsWarningBlink();
                 updateWorkplaceDisplay();
@@ -296,7 +301,6 @@ public class CameraFragment extends Fragment {
     }
 
     private void startGpsWarningBlink() {
-        // FIXED GLITCH #1: Added binding null safety
         if (isBlinking || binding == null) return;
         isBlinking = true;
         gpsBlinkAnimator = ObjectAnimator.ofInt(binding.buttonGpsStatus, "colorFilter", Color.GREEN, Color.RED);
@@ -310,7 +314,6 @@ public class CameraFragment extends Fragment {
     private void stopGpsWarningBlink() {
         if (gpsBlinkAnimator != null) {
             gpsBlinkAnimator.cancel();
-            // FIXED GLITCH #1: Critical null safety check to prevent crash on field access
             if (binding != null) {
                 binding.buttonGpsStatus.setColorFilter(Color.GREEN);
             }
@@ -319,19 +322,16 @@ public class CameraFragment extends Fragment {
     }
 
     private void updateWorkplaceDisplay() {
-        // FIXED GLITCH #1: Null safety check
         if (binding == null) return;
         SharedPreferences prefs = requireContext().getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE);
         String name = prefs.getString(ManualLocationDialog.KEY_MANUAL_LOC_1, "Automatic");
         binding.textActiveWorkplace.setText("Workplace: " + name);
     }
 
-    // --- LIFECYCLE FOR GPS ENGINE (NEW) ---
     @Override
     public void onResume() {
         super.onResume();
         logToScreen("System: Resuming. Starting GPS Engine...");
-        // Start tracking immediately so we have data BEFORE capture
         if (locationProvider != null) locationProvider.startLocationUpdates();
         updateWorkplaceDisplay();
     }
@@ -343,30 +343,24 @@ public class CameraFragment extends Fragment {
         if (locationProvider != null) locationProvider.stopLocationUpdates();
         stopGpsWarningBlink();
     }
-    // --------------------------------------
 
-    // --- DEBUG CONSOLE HELPER (UPDATED FOR BROADCAST) ---
     private void logToScreen(String message) {
         if (getContext() == null) return;
 
-        // Determine if this is an error or info
         String type = "info";
         String lowerMsg = message.toLowerCase();
         if (lowerMsg.contains("error") || lowerMsg.contains("fail") || lowerMsg.contains("missing") || lowerMsg.contains("warning")) {
             type = "error";
         }
 
-        // Broadcast the log to MainActivity
         Intent intent = new Intent("com.lunartag.ACTION_LOG_UPDATE");
         intent.putExtra("log_msg", message);
         intent.putExtra("log_type", type);
         intent.setPackage(requireContext().getPackageName());
         requireContext().sendBroadcast(intent);
 
-        // Also print to system log for ADB debugging
         Log.d("LunarTagLive", message); 
     }
-    // --------------------------------------------
 
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(getContext());
@@ -404,6 +398,7 @@ public class CameraFragment extends Fragment {
         startCamera();
     }
 
+    // --- STANDARD CAMERA CAPTURE (100% PRESERVED) ---
     private void takePhoto() {
         if (imageCapture == null) {
             logToScreen("ERROR: ImageCapture is null (Camera not ready).");
@@ -439,12 +434,73 @@ public class CameraFragment extends Fragment {
                 return;
             }
 
-            // --- NEW: LOGIC TO DETECT LOCATION MODE ---
+            processBitmapAndSave(bitmap, "LunarTag_");
+
+        } catch (Exception e) {
+            logToScreen("CRITICAL ERROR Top Level: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // --- NEW: PROCESS IMPORTED GALLERY IMAGE ---
+    private void processImportedImage(Uri imageUri) {
+        Toast.makeText(getContext(), "Importing image...", Toast.LENGTH_SHORT).show();
+        cameraExecutor.execute(() -> {
+            try {
+                logToScreen("System: Decoding imported image URI...");
+                Bitmap bitmap = decodeBitmapFromUri(imageUri);
+                if (bitmap == null) {
+                    logToScreen("ERROR: Could not decode imported image.");
+                    new android.os.Handler(Looper.getMainLooper()).post(() ->
+                            Toast.makeText(getContext(), "Failed to load selected image.", Toast.LENGTH_SHORT).show());
+                    return;
+                }
+
+                logToScreen("System: Imported bitmap ready. Proceeding to watermark...");
+                processBitmapAndSave(bitmap, "LunarTag_Import_");
+
+            } catch (Exception e) {
+                logToScreen("CRITICAL ERROR Importing: " + e.getMessage());
+                e.printStackTrace();
+            }
+        });
+    }
+
+    private Bitmap decodeBitmapFromUri(Uri uri) {
+        Context context = getContext();
+        if (context == null || uri == null) return null;
+        try {
+            Bitmap bitmap;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                ImageDecoder.Source source = ImageDecoder.createSource(context.getContentResolver(), uri);
+                bitmap = ImageDecoder.decodeBitmap(source, (decoder, info, s) -> {
+                    decoder.setMutableRequired(true);
+                    decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);
+                });
+            } else {
+                try (InputStream is = context.getContentResolver().openInputStream(uri)) {
+                    bitmap = BitmapFactory.decodeStream(is);
+                }
+            }
+            return bitmap;
+        } catch (Exception e) {
+            logToScreen("Decode Exception: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * UNIFIED PROCESSING ENGINE
+     * Handles watermarking, storage, DB, clipboard, and scheduler identically
+     * for both captured camera frames and imported images.
+     */
+    private void processBitmapAndSave(Bitmap sourceBitmap, String filenamePrefix) {
+        try {
+            Bitmap bitmap = sourceBitmap;
+
             logToScreen("System: Checking Location mode...");
             SharedPreferences settingsPrefs = requireContext().getSharedPreferences(PREFS_SETTINGS, Context.MODE_PRIVATE);
             boolean isManualMode = settingsPrefs.getBoolean(ManualLocationDialog.KEY_LOCATION_MODE_MANUAL, false);
-            
-            // NEW: Check if QR Printing is enabled
             boolean isQrEnabled = settingsPrefs.getBoolean(ManualLocationDialog.KEY_MANUAL_QR_ENABLED, false);
 
             Location sensorLoc = locationProvider.getCurrentLocationFast();
@@ -454,18 +510,14 @@ public class CameraFragment extends Fragment {
             String finalManualSubLine = "";
             String gpsString;
             
-            // Coordinates to be used for the QR link
             String qrLat;
             String qrLon;
 
             if (isManualMode) {
                 logToScreen("System: Manual Override detected.");
-                
-                // FIXED GLITCH #3 & ISSUE #2: Clean construction of final address string without messy brackets
                 String locName = settingsPrefs.getString(ManualLocationDialog.KEY_MANUAL_LOC_1, "No Address").replace("(", "").replace(")", "");
                 String landmark = settingsPrefs.getString(ManualLocationDialog.KEY_MANUAL_LANDMARK, "").replace("(", "").replace(")", "");
                 
-                // Use a clean comma separator for the watermark line
                 finalAddress = locName + (landmark.isEmpty() ? "" : ", " + landmark);
 
                 finalManualSubLine = settingsPrefs.getString(ManualLocationDialog.KEY_MANUAL_STATE, "").replace("(", "").replace(")", "") + ", " +
@@ -483,9 +535,7 @@ public class CameraFragment extends Fragment {
                     logToScreen("Error: Manual Lat/Lon parse failed.");
                 }
             } else {
-                // --- CRITICAL CHANGE: INSTANT GPS ---
                 logToScreen("System: Grabbing Location immediately...");
-                // We DO NOT wait here. We grab the value from memory instantly.
                 Location location = sensorLoc;
 
                 if (location == null) {
@@ -496,7 +546,6 @@ public class CameraFragment extends Fragment {
                     finalLon = location.getLongitude();
                 }
 
-                // FIXED: getAddressFromLocation already calls our robust updated GeocodingUtils
                 finalAddress = getAddressFromLocation(location);
                 qrLat = String.valueOf(finalLat);
                 qrLon = String.valueOf(finalLon);
@@ -512,15 +561,10 @@ public class CameraFragment extends Fragment {
                     assignedTime = getNextScheduledTimestamp(realTime);
                 }
 
-                // --- FIX: LOAD COMPANY NAME FROM SETTINGS ---
                 String companyName = settingsPrefs.getString(KEY_COMPANY_NAME, "My Company"); 
-
-                // --- FIX: REMOVED ':ss' (SECONDS) FROM FORMAT ---
                 SimpleDateFormat sdf = new SimpleDateFormat("dd-MMM-yyyy hh:mm a", Locale.US);
-
                 String timeString = sdf.format(new Date(assignedTime));
 
-                // FIXED GLITCH #4: Address components are passed cleanly to updated WatermarkUtils (File 1)
                 ArrayList<String> linesList = new ArrayList<>();
                 linesList.add("GPS Map Camera");
                 linesList.add(companyName);
@@ -534,35 +578,28 @@ public class CameraFragment extends Fragment {
                 String[] watermarkLines = linesList.toArray(new String[0]);
 
                 logToScreen("System: Applying Watermark...");
-
-                // --- UPDATED: Passing data to improved Watermark Utility with fixed QR scaling ---
-                // FIXED: Assigned result to the bitmap reference to support the defensive clone fallback.
                 bitmap = WatermarkUtils.addWatermark(getContext(), bitmap, null, watermarkLines, qrLat, qrLon, isQrEnabled);
 
-                // --- STORAGE LOGIC ---
                 String absolutePath = null;
                 logToScreen("System: Saving File...");
 
-                // 1. Check if user selected a custom folder
+                String fileBaseName = filenamePrefix + realTime;
+
                 if (StorageUtils.hasCustomFolder(getContext())) {
                     logToScreen("Storage: Using User-Selected Folder (SD/External).");
-                    absolutePath = StorageUtils.saveImageToCustomFolder(getContext(), bitmap, "LunarTag_" + realTime);
-                } 
-                // 2. Fallback to Default Internal
-                else {
+                    absolutePath = StorageUtils.saveImageToCustomFolder(getContext(), bitmap, fileBaseName);
+                } else {
                     logToScreen("Storage: Using Default Internal Storage.");
-                    absolutePath = saveImageToInternalStorage(getContext(), bitmap, "LunarTag_" + realTime);
-                    // If Internal, we also export to Gallery for visibility
+                    absolutePath = saveImageToInternalStorage(getContext(), bitmap, fileBaseName);
                     if (absolutePath != null) {
                         logToScreen("Storage: Exporting copy to Public Gallery...");
-                        exportToPublicGallery(getContext(), absolutePath, "LunarTag_" + realTime);
+                        exportToPublicGallery(getContext(), absolutePath, fileBaseName);
                     }
                 }
 
                 if (absolutePath != null) {
                     logToScreen("SUCCESS: File Written. (" + absolutePath + ")");
 
-                    // Create location object for Database
                     Location dbLocation = new Location("temp");
                     dbLocation.setLatitude(finalLat);
                     dbLocation.setLongitude(finalLon);
@@ -573,11 +610,10 @@ public class CameraFragment extends Fragment {
                     savePhotoToDatabase(absolutePath, realTime, assignedTime, dbLocation);
                     logToScreen("System: Database Updated.");
 
-                    // --- ENHANCEMENT: COPY TO CLIPBOARD ---
                     copyImageToClipboard(absolutePath);
 
                     new android.os.Handler(Looper.getMainLooper()).post(() -> {
-                        Toast.makeText(getContext(), "Photo Saved!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getContext(), "Photo Processed and Saved!", Toast.LENGTH_SHORT).show();
                         updateSlotCounter();
                     });
                 } else {
@@ -592,12 +628,11 @@ public class CameraFragment extends Fragment {
             }
 
         } catch (Exception e) {
-            logToScreen("CRITICAL ERROR Top Level: " + e.getMessage());
+            logToScreen("CRITICAL ERROR inside processBitmapAndSave: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
-    // --- Handle Folder Selection Result ---
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
