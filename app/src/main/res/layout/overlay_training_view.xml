@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content">
+
+    <!-- 
+       THE TARGET 🔴
+       1. Drag this Icon to move.
+       2. Tap this Icon to SAVE.
+    -->
+    <ImageView
+        android:id="@+id/image_target_crosshair"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:src="@android:drawable/ic_menu_mylocation"
+        android:tint="#FF0000"
+        android:background="#00FFFFFF"
+        android:scaleType="fitCenter"
+        android:contentDescription="Training Target" />
+
+</FrameLayout>
